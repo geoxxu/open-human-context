@@ -39,6 +39,7 @@ The minimal operation set is:
 - grant revocation
 - audit event listing
 - optional composite context injection for tool-calling environments
+- optional skill manifest discovery
 
 ## 4. Canonical Message Shapes
 
@@ -197,6 +198,7 @@ One valid local HTTP mapping is:
 - `POST /bindings/{binding_id}/release`
 - `POST /grants/{grant_id}/revoke`
 - `GET /audit-events`
+- `GET /.well-known/hcp-skills.json`
 
 Rules:
 
@@ -226,6 +228,7 @@ One valid CLI surface is:
 - `hcp bindings release <binding-id>`
 - `hcp grants revoke <grant-id>`
 - `hcp audit list`
+- `hcp skills manifest`
 
 Rules:
 
@@ -243,6 +246,7 @@ An embeddable library interface SHOULD expose functions equivalent to:
 - `releaseBinding(bindingId)`
 - `revokeGrant(grantId, reason)`
 - `listAuditEvents(filter)`
+- `getSkillManifest()`
 
 SDKs MAY present idiomatic naming while preserving the same semantics.
 
@@ -360,6 +364,9 @@ Example response:
 }
 ```
 
+Manifest discovery for automatic tool recognition SHOULD align with
+`spec/skill-manifest.md` and MAY be exposed through `/.well-known/hcp-skills.json`.
+
 ## 9. Event Schema
 
 All emitted audit events SHOULD share a common envelope:
@@ -416,5 +423,9 @@ Recommended error codes:
 This document standardizes behavior, not hosting architecture. Implementations
 may expose the canonical operation set through one or more transport surfaces,
 provided the core semantics and safety boundaries remain unchanged.
+
+
+
+
 
 

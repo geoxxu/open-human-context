@@ -152,11 +152,16 @@ The interoperability contract is the skill surface above.
 `HCP-SKILLS.md` is useful as a human-readable integration contract, but it is
 not sufficient for automatic product discovery on its own.
 
-For machine recognition, implementations SHOULD eventually expose an equivalent
+For machine recognition, implementations SHOULD expose an equivalent
 machine-readable manifest such as `/.well-known/hcp-skills.json` or a local
 runtime discovery endpoint.
 
-That future manifest should at minimum declare:
+The current draft manifest shape is defined in:
+
+- `spec/skill-manifest.md`
+- `spec/hcp-skills.schema.json`
+
+That manifest should at minimum declare:
 
 - supported skill names
 - input schema references
