@@ -1,0 +1,10 @@
+{
+  "name": "@hcp/runtime-local",
+  "version": "0.1.0-draft",
+  "private": true,
+  "type": "module",
+  "description": "Local-first reference runtime for Human Context Protocol.",
+  "scripts": {
+    "start": "node src/server.mjs"
+  }
+}

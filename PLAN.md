@@ -12,6 +12,25 @@ HCP currently defines a clear philosophy, boundary, and governance model.
 The next step is not to build a large product.
 The next step is to define a minimal, auditable, implementable protocol surface.
 
+### Progress Snapshot
+
+Completed:
+- core specification documents under `spec/`
+- skill and tool compatibility profile in `HCP-SKILLS.md`
+- draft machine-readable skill manifest shape in `spec/skill-manifest.md`
+- draft manifest schema in `spec/hcp-skills.schema.json`
+- initial TypeScript SDK skeleton in `sdk/typescript/`
+
+In progress:
+- minimal local HTTP reference runtime in `runtime/local/`
+
+Not started yet:
+- `sdk/python/`
+- end-to-end examples
+
+Recommended next starting point:
+- continue expanding `runtime/local/` with persistence, tighter policy handling, and example flows
+
 This plan intentionally favors:
 - simplicity over feature breadth
 - explicit boundaries over convenience
@@ -80,25 +99,27 @@ The goal is a small, coherent, secure protocol core.
 The first milestone should produce the following documents and components:
 
 ### Specifications
-- `spec/core-model.md`
-- `spec/interaction-flows.md`
-- `spec/threat-model.md`
-- `spec/minimum-standard.md`
-- `spec/transport.md`
-- `HCP-SKILLS.md`
+- `spec/core-model.md` `[done]`
+- `spec/interaction-flows.md` `[done]`
+- `spec/threat-model.md` `[done]`
+- `spec/minimum-standard.md` `[done]`
+- `spec/transport.md` `[done]`
+- `HCP-SKILLS.md` `[done]`
+- `spec/skill-manifest.md` `[done]`
+- `spec/hcp-skills.schema.json` `[done]`
 
 ### SDKs
-- `sdk/typescript/`
-- `sdk/python/`
+- `sdk/typescript/` `[in progress]`
+- `sdk/python/` `[not started]`
 
 ### Reference implementation
-- `runtime/local/`
+- `runtime/local/` `[in progress]`
 
 ### Examples
-- minimal authorization example
-- minimal context binding example
-- minimal revocation example
-- minimal audit log example
+- minimal authorization example `[not started]`
+- minimal context binding example `[not started]`
+- minimal revocation example `[not started]`
+- minimal audit log example `[not started]`
 
 ---
 
@@ -344,10 +365,10 @@ Goal:
 Define the protocol before building developer tooling.
 
 Deliverables:
-- `spec/core-model.md`
-- `spec/interaction-flows.md`
-- `spec/threat-model.md`
-- `spec/minimum-standard.md`
+- `spec/core-model.md` `[done]`
+- `spec/interaction-flows.md` `[done]`
+- `spec/threat-model.md` `[done]`
+- `spec/minimum-standard.md` `[done]`
 
 Exit criteria:
 - the main nouns and lifecycle states are stable
@@ -359,12 +380,12 @@ Goal:
 Define how local systems talk to HCP components.
 
 Deliverables:
-- `spec/transport.md`
-- `HCP-SKILLS.md`
-- request/response examples
-- event schema draft
-- error model draft
-- a draft machine-readable skill manifest shape for future automation
+- `spec/transport.md` `[done]`
+- `HCP-SKILLS.md` `[done]`
+- request/response examples `[done]`
+- event schema draft `[done]`
+- error model draft `[done]`
+- a draft machine-readable skill manifest shape for future automation `[done]`
 
 Recommended initial transports:
 - local HTTP
@@ -538,19 +559,19 @@ To keep the project coherent in its early stage, the following rules should appl
 
 The immediate next actions should be:
 
-1. Create the `spec/` directory
-2. Write `spec/core-model.md`
-3. Write `spec/interaction-flows.md`
-4. Write `spec/threat-model.md`
-5. Write `spec/minimum-standard.md`
-6. Write `spec/transport.md`
-7. Write `HCP-SKILLS.md`
-8. Review for internal consistency
-9. Build the TypeScript SDK against the written spec
-10. Build the Python SDK to match the TS semantics
-11. Implement a minimal local runtime
-12. Add example flows including a tool-calling adapter
-13. Only then discuss broader framework integration
+1. Create the `spec/` directory `[done]`
+2. Write `spec/core-model.md` `[done]`
+3. Write `spec/interaction-flows.md` `[done]`
+4. Write `spec/threat-model.md` `[done]`
+5. Write `spec/minimum-standard.md` `[done]`
+6. Write `spec/transport.md` `[done]`
+7. Write `HCP-SKILLS.md` `[done]`
+8. Review for internal consistency `[done]`
+9. Build the TypeScript SDK against the written spec `[in progress]`
+10. Build the Python SDK to match the TS semantics `[not started]`
+11. Implement a minimal local runtime `[in progress]`
+12. Add example flows including a tool-calling adapter `[not started]`
+13. Only then discuss broader framework integration `[pending]`
 
 ---
 
