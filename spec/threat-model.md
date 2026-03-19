@@ -54,6 +54,7 @@ Required mitigation:
 - authorize capabilities, not bulk memory access
 - expose `ContextView` objects, not raw vault export APIs
 - deny requests whose semantics imply broad extraction
+- integrations MUST NOT treat direct file reads, vector-store queries, or equivalent backing-store operations as the normal interoperability surface
 
 ### 5.2 Over-Broad Capability Design
 
@@ -183,3 +184,4 @@ requested, when it can be used, and how it can be revoked. It does not make
 requesters trustworthy by default. Compatible implementations should therefore
 layer additional controls such as sandboxing, local policy enforcement, and
 developer-facing warnings where appropriate.
+

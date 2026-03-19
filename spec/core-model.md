@@ -282,11 +282,17 @@ Required fields:
 - `expires_at`: timestamp
 - `portable`: boolean, default `false`
 
+Optional fields:
+
+- `provenance`: implementation-defined metadata about origin, modification, or attestation
+
 Rules:
 
 - the `content` field MUST contain only the minimum information needed for the declared purpose
 - a context view MUST be capability-scoped and purpose-aware
 - a context view MUST NOT be treated as a raw export of the user's vault
+- a context view SHOULD prefer summaries, signals, or task-specific guidance over raw recalled artifacts unless an approved capability explicitly requires otherwise
+- if provenance metadata is included, it MUST describe origin or transformation without requiring raw source disclosure
 - `portable` MUST be `false` unless an explicit grant constraint allows portability
 
 Example:
@@ -301,6 +307,11 @@ Example:
   "purpose_id": "draft_email",
   "content": {
     "tone_guidance": "Prefer warm, concise, and direct phrasing."
+  },
+  "provenance": {
+    "assertion_type": "self",
+    "last_modified_at": "2026-03-10T08:15:00Z",
+    "confidence": "medium"
   },
   "created_at": "2026-03-19T10:03:00Z",
   "expires_at": "2026-03-19T10:30:00Z",
@@ -418,4 +429,5 @@ This document does not define:
 - a global identity system
 - ontology completeness for all possible human context domains
 - cloud deployment requirements
+
 

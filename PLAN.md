@@ -29,11 +29,12 @@ HCP should be developed in the following order:
 1. Define the protocol specification documents
 2. Define the minimal object model
 3. Define the minimal interaction flows
-4. Define the threat model and minimum compliance standard
-5. Implement the TypeScript SDK
-6. Implement the Python SDK
-7. Implement a local runtime and reference vault
-8. Expand integrations only after the core model proves stable
+4. Define the skill and tool compatibility profile for agent ecosystems
+5. Define the threat model and minimum compliance standard
+6. Implement the TypeScript SDK
+7. Implement the Python SDK
+8. Implement a local runtime and reference vault
+9. Expand integrations only after the core model proves stable
 
 This order is intentional.
 
@@ -55,6 +56,7 @@ The first usable version of HCP should remain intentionally narrow.
 - Purpose-bound usage
 - Revocation support
 - Audit events
+- Skill and tool adapters that preserve HCP boundaries
 - Local-first reference runtime
 - SDKs for TS and Python
 
@@ -63,6 +65,7 @@ The first usable version of HCP should remain intentionally narrow.
 - Social or consumer-facing applications
 - Centralized identity systems
 - Bulk export of raw context data
+- Direct compatibility with any vendor-specific memory folder or vector database layout
 - Long-term agent-owned memory replication
 - Deep framework-specific lock-in
 - Rich ontology design beyond minimal interoperable context domains
@@ -82,6 +85,7 @@ The first milestone should produce the following documents and components:
 - `spec/threat-model.md`
 - `spec/minimum-standard.md`
 - `spec/transport.md`
+- `HCP-SKILLS.md`
 
 ### SDKs
 - `sdk/typescript/`
@@ -192,6 +196,7 @@ A ContextView should be:
 - capability-scoped
 - non-portable by default
 - derived from user-owned context without exposing the full vault
+- suitable for delivery through a skill or tool adapter without revealing storage internals
 
 A ContextView is the main boundary object of HCP.
 
@@ -355,14 +360,17 @@ Define how local systems talk to HCP components.
 
 Deliverables:
 - `spec/transport.md`
+- `HCP-SKILLS.md`
 - request/response examples
 - event schema draft
 - error model draft
+- a draft machine-readable skill manifest shape for future automation
 
 Recommended initial transports:
 - local HTTP
 - CLI
 - embeddable library interface
+- skill or tool-calling adapter profile
 
 Exit criteria:
 - a minimal local implementation is possible without guessing protocol behavior
@@ -491,14 +499,24 @@ When the core is ready, adapters may be built for:
 ### OpenClaw and similar frameworks
 Framework-specific integrations should be treated as downstream adapters.
 
+Compatibility should target the HCP capability and skill model, not any
+vendor-specific storage format.
+
 They should consume HCP through:
 - capability discovery
 - authorization requests
 - runtime binding
+- skill or tool calls that request injected context
 - revocation hooks
 - audit sinks
 
-They should not redefine the protocol itself.
+They MAY assemble context from local markdown memories, vector stores, or other
+private vault implementations.
+
+They should not:
+- require direct access to `memory/*.md`, vector databases, or other storage internals
+- redefine raw memory read APIs as the interoperability surface
+- redefine the protocol itself
 
 ---
 
@@ -526,12 +544,13 @@ The immediate next actions should be:
 4. Write `spec/threat-model.md`
 5. Write `spec/minimum-standard.md`
 6. Write `spec/transport.md`
-7. Review for internal consistency
-8. Build the TypeScript SDK against the written spec
-9. Build the Python SDK to match the TS semantics
-10. Implement a minimal local runtime
-11. Add example flows
-12. Only then discuss broader framework integration
+7. Write `HCP-SKILLS.md`
+8. Review for internal consistency
+9. Build the TypeScript SDK against the written spec
+10. Build the Python SDK to match the TS semantics
+11. Implement a minimal local runtime
+12. Add example flows including a tool-calling adapter
+13. Only then discuss broader framework integration
 
 ---
 

@@ -56,6 +56,10 @@ Required Storage Properties
 *   Authorization occurs at the **context injection layer**, not the storage layer.
     
 *   Access is granted via scoped, revocable capabilities.
+
+*   Third-party agents must not require direct access to backing stores such as
+    markdown memory folders, vector databases, or internal retrieval indexes in
+    order to interoperate with HCP.
     
 
 * * *
@@ -81,6 +85,34 @@ What HCP Does NOT Require
 *   On-chain storage of context
     
 *   A default hosting provider
+
+*   Compatibility with any specific storage schema, folder layout, or vector database
+
+* * *
+
+Storage as an Implementation Detail
+-----------------------------------
+
+An HCP-compatible runtime may assemble context from:
+
+*   local markdown memories
+    
+*   semantic recall indexes such as `sqlite-vec`
+    
+*   encrypted structured stores
+    
+*   hybrid retrieval pipelines
+
+These are part of a **local context assembly layer**, not part of the protocol
+surface exposed to consuming agents.
+
+In an OpenClaw-like architecture:
+
+*   the local agent acts as the context authority
+    
+*   the memory folder and vector store remain private vault internals
+    
+*   external agents request scoped context injection rather than raw reads
     
 
 * * *

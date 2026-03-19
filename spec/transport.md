@@ -38,6 +38,7 @@ The minimal operation set is:
 - runtime binding release
 - grant revocation
 - audit event listing
+- optional composite context injection for tool-calling environments
 
 ## 4. Canonical Message Shapes
 
@@ -245,7 +246,121 @@ An embeddable library interface SHOULD expose functions equivalent to:
 
 SDKs MAY present idiomatic naming while preserving the same semantics.
 
-## 8. Event Schema
+## 8. Skill / Tool Mapping
+
+One valid tool-calling profile is:
+
+- `hcp.capabilities.list`
+- `hcp.inject_context`
+- `hcp.bindings.release`
+- `hcp.grants.revoke`
+
+Rules:
+
+- `hcp.inject_context` MAY be a composite convenience operation that performs authorization and runtime binding behind a single tool call
+- composite skill execution MUST still create auditable grant and binding records with normal expiry and revocation behavior
+- skill adapters MUST NOT expose raw memory-query primitives such as direct markdown reads, vector-store queries, or equivalent backing-store operations as the interoperability surface
+- skill adapters MAY accept product-facing hints such as `requested_context`, but they MUST resolve them to explicit approved capabilities before context is injected
+- skill responses SHOULD return canonical HCP objects or a shape directly mappable to them
+
+Example `hcp.inject_context` request:
+
+```json
+{
+  "requester_id": "demo.recruiting.agent",
+  "purpose": {
+    "id": "candidate_screening",
+    "title": "Candidate Screening",
+    "description": "Summarize relevant professional context for the current hiring workflow."
+  },
+  "requested_context": [
+    "professional_background",
+    "collaboration_style",
+    "technical_depth"
+  ],
+  "capabilities": [
+    "profile.summarize_professional_background",
+    "workflow.describe_collaboration_style"
+  ],
+  "constraints": [
+    {
+      "type": "storage_allowed",
+      "value": false
+    }
+  ],
+  "session_id": "sess_demo_01"
+}
+```
+
+Example response:
+
+```json
+{
+  "grant": {
+    "id": "grant_01JX9SKILL1",
+    "subject_id": "user_123",
+    "requester_id": "demo.recruiting.agent",
+    "requested_capabilities": [
+      "profile.summarize_professional_background",
+      "workflow.describe_collaboration_style"
+    ],
+    "approved_capabilities": [
+      "profile.summarize_professional_background",
+      "workflow.describe_collaboration_style"
+    ],
+    "purpose": {
+      "id": "candidate_screening",
+      "title": "Candidate Screening",
+      "description": "Summarize relevant professional context for the current hiring workflow."
+    },
+    "constraints": [
+      {
+        "type": "storage_allowed",
+        "value": false
+      }
+    ],
+    "issued_at": "2026-03-19T10:00:00Z",
+    "expires_at": "2026-03-19T10:20:00Z",
+    "state": "active"
+  },
+  "binding": {
+    "id": "binding_01JX9SKILL2",
+    "grant_id": "grant_01JX9SKILL1",
+    "requester_id": "demo.recruiting.agent",
+    "purpose_id": "candidate_screening",
+    "session_id": "sess_demo_01",
+    "context_view_id": "view_01JX9SKILL3",
+    "created_at": "2026-03-19T10:01:00Z",
+    "expires_at": "2026-03-19T10:20:00Z",
+    "state": "active"
+  },
+  "context_view": {
+    "id": "view_01JX9SKILL3",
+    "grant_id": "grant_01JX9SKILL1",
+    "capabilities": [
+      "profile.summarize_professional_background",
+      "workflow.describe_collaboration_style"
+    ],
+    "purpose_id": "candidate_screening",
+    "content": {
+      "summary": "The user has repeatedly worked on applied AI systems and collaborates best in small, fast-moving teams.",
+      "signals": {
+        "technical_depth": "high",
+        "collaboration_style": "direct_and_iterative"
+      }
+    },
+    "provenance": {
+      "assertion_type": "self",
+      "confidence": "medium"
+    },
+    "created_at": "2026-03-19T10:01:00Z",
+    "expires_at": "2026-03-19T10:20:00Z",
+    "portable": false
+  }
+}
+```
+
+## 9. Event Schema
 
 All emitted audit events SHOULD share a common envelope:
 
@@ -267,7 +382,7 @@ All emitted audit events SHOULD share a common envelope:
 }
 ```
 
-## 9. Error Model
+## 10. Error Model
 
 Transport surfaces SHOULD map failures to a shared error shape:
 
@@ -296,8 +411,10 @@ Recommended error codes:
 - `constraint_not_enforceable`
 - `policy_violation`
 
-## 10. Transport Neutrality
+## 11. Transport Neutrality
 
 This document standardizes behavior, not hosting architecture. Implementations
 may expose the canonical operation set through one or more transport surfaces,
 provided the core semantics and safety boundaries remain unchanged.
+
+

@@ -26,6 +26,11 @@ Personal context — relationships, expression style, preferences, history, and 
 - How context can be injected at runtime without being extracted or retained
 - How users can revoke access at any time
 
+HCP aims to interoperate with local memory systems such as OpenClaw by
+standardizing a capability and skill surface, not a storage layout. A local
+`memory/` folder, vector index, or SQLite database remains an implementation
+detail behind a user-controlled context authority.
+
 This project focuses on **interfaces, permissions, and boundaries** — not applications.
 
 ---
@@ -97,6 +102,11 @@ but may not *possess context*.
 - **Context Injection Interface**  
   Runtime-only binding mechanisms for AI agents.
 
+- **Skill / Tool Compatibility Profile**  
+  A thin adapter profile for OpenClaw-like products and tool-calling agent
+  ecosystems that need to request scoped context injection without reading raw
+  memory stores.
+
 - **Local Reference Implementation (Optional)**  
   Demonstrates encrypted, local storage — not a required standard.
 
@@ -112,6 +122,10 @@ The user controls:
 - what is included
 - when it is updated
 - when it is deleted
+
+Third-party agents do **not** get direct interoperability rights to those
+stores. They should request scoped context injection from a local authority
+instead.
 
 ---
 

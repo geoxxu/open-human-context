@@ -71,6 +71,12 @@ and product-specific features, business logic, or convenience behavior.
 The implementation MUST NOT depend on mandatory centralized custody, mandatory
 provider identity, or hidden commercial control assumptions.
 
+### 3.11 Skill and Tool Boundary Preservation
+
+If the implementation exposes a tool, function, or skill adapter for agent
+frameworks, that surface MUST preserve HCP boundaries by requesting scoped
+context injection rather than direct access to raw backing stores.
+
 ## 4. Testable Conformance Checks
 
 An implementation SHOULD be evaluated against at least the following checks:
@@ -85,6 +91,7 @@ An implementation SHOULD be evaluated against at least the following checks:
 8. It does not require handing over a raw context database to the requester.
 9. It can enforce or fail closed on unsupported constraints.
 10. It can explain the approved capability scope in user-visible terms.
+11. If it exposes a skill or tool surface, that surface does not require direct reads of the user's memory store or vector database.
 
 ## 5. Non-Requirements
 
@@ -108,3 +115,5 @@ Compatibility claims SHOULD specify:
 
 Claims MUST NOT imply that HCP certifies overall product ethics, security, or
 trustworthiness beyond the boundary guarantees defined here.
+
+

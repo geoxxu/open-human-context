@@ -94,8 +94,28 @@ HCP does not prevent:
 *   Users from modifying their own context
     
 *   Services from rejecting self-asserted data
-    
 
+* * *
+
+Context Injection Output
+------------------------
+
+When HCP delivers a derived context view to a consuming agent, the output may
+include provenance metadata alongside the injected payload.
+
+Typical fields include:
+
+*   assertion type
+    
+*   last modified time
+    
+*   confidence or trust label
+    
+*   summarized transformation history
+
+This metadata helps a consumer evaluate suitability for the declared purpose
+without requiring access to raw memories or backing storage.
+    
 * * *
 
 Design Goal

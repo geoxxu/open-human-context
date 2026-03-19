@@ -223,7 +223,20 @@ Implementations MUST record at least:
 - audit records MUST NOT require raw context payloads
 - audit records SHOULD be queryable for incident analysis
 
-## 10. Failure Conditions
+## 10. Skill / Tool Adapter Profile
+
+Tool-calling and agent ecosystems MAY expose HCP through a skill or tool surface
+instead of raw HTTP or CLI commands.
+
+Rules:
+
+- a requester MUST ask for injected context, not direct reads of memory files, vector stores, or internal retrieval indexes
+- a skill adapter MAY expose a composite operation that performs authorization and runtime binding behind one user-visible call
+- a composite skill MUST still preserve the underlying HCP semantics for grant creation, binding creation, audit, expiry, and revocation
+- a skill response SHOULD return enough information for safe use, such as the derived payload, scope metadata, expiry, and any release or revocation handles
+- product-facing fields such as `requested_context` MAY be accepted as ergonomic hints, but they MUST be resolved to explicit approved capabilities before context is injected
+
+## 11. Failure Conditions
 
 An implementation MUST reject or fail closed when:
 
@@ -234,7 +247,7 @@ An implementation MUST reject or fail closed when:
 - required constraints cannot be enforced
 - runtime state needed to verify authorization is unavailable
 
-## 11. Reference Sequence
+## 12. Reference Sequence
 
 The intended minimal flow is:
 
@@ -245,4 +258,5 @@ The intended minimal flow is:
 5. Use derived context view within the live execution only.
 6. Release binding on completion or timeout.
 7. Revoke at any time if the user withdraws permission.
+
 
