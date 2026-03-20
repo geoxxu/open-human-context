@@ -244,6 +244,41 @@
     "injectContextOutput": {
       "type": "object",
       "additionalProperties": true
+    },
+    "releaseBindingInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding_id"
+      ],
+      "properties": {
+        "binding_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "revokeGrantInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "grant_id"
+      ],
+      "properties": {
+        "grant_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "noContentOutput": {
+      "type": "object",
+      "additionalProperties": false
     }
   }
 }
+

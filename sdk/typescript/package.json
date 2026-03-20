@@ -5,6 +5,8 @@
   "type": "module",
   "description": "Draft TypeScript SDK for Human Context Protocol.",
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "demo": "npm run build && node scripts/run-local-runtime-demo.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

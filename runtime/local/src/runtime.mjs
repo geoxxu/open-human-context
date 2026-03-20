@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import {
   CAPABILITIES,
   DEFAULT_SUBJECT_ID,
@@ -8,6 +10,19 @@ import {
 } from './data.mjs';
 
 const DEFAULT_DURATION_SECONDS = 1800;
+const PERSISTED_STATE_VERSION = '0.1-draft';
+
+const REQUESTED_CONTEXT_HINT_CAPABILITY_MAP = new Map([
+  ['tone_guidance', 'communication_style.adapt_tone'],
+  ['pacing', 'communication_style.adapt_tone'],
+  ['rank_options', 'preferences.rank_options'],
+  ['decision_style', 'preferences.rank_options'],
+  ['favored_order', 'preferences.rank_options'],
+  ['professional_background', 'profile.summarize_professional_background'],
+  ['technical_depth', 'profile.summarize_professional_background'],
+  ['collaboration_style', 'workflow.describe_collaboration_style'],
+  ['team_preference', 'workflow.describe_collaboration_style'],
+]);
 
 export class HcpRuntimeError extends Error {
   constructor(status, code, message, details = {}, retryable = false) {
@@ -39,6 +54,12 @@ export class LocalHcpRuntime {
     this.grants = new Map();
     this.bindings = new Map();
     this.auditEvents = [];
+    this.stateFilePath =
+      typeof options.stateFilePath === 'string' && options.stateFilePath.trim().length > 0
+        ? options.stateFilePath
+        : undefined;
+
+    this.#loadState();
   }
 
   listCapabilities() {
@@ -59,7 +80,7 @@ export class LocalHcpRuntime {
     });
 
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + normalized.requested_duration_seconds * 1000);
+    const expiresAt = new Date(now.getTime() + normalized.effective_duration_seconds * 1000);
     const grant = {
       id: this.#createId('grant'),
       subject_id: this.subjectId,
@@ -83,6 +104,7 @@ export class LocalHcpRuntime {
       result: 'approved',
     });
 
+    this.#persistState();
     return { grant };
   }
 
@@ -101,14 +123,19 @@ export class LocalHcpRuntime {
     const grantId = this.#requireNonEmptyString(payload.grant_id, 'grant_id', 'invalid_request');
     const requesterId = this.#requireNonEmptyString(payload.requester_id, 'requester_id', 'requester_identity_invalid');
     const sessionId = this.#requireNonEmptyString(payload.session_id, 'session_id', 'invalid_request');
+    const metadata =
+      payload.metadata === undefined
+        ? {}
+        : this.#requireObject(payload.metadata, 'metadata must be an object when provided.');
     const grant = this.grants.get(grantId);
 
     if (!grant) {
       throw new HcpRuntimeError(404, 'unknown_grant', 'The referenced grant does not exist.');
     }
 
-    this.#assertGrantUsable(grant, requesterId);
+    this.#assertGrantUsable(grant, requesterId, sessionId, metadata);
     const binding = this.#createBindingFromGrant(grant, sessionId);
+    this.#persistState();
     return {
       binding,
       context_view: this.#createContextView(binding, grant, payload.requested_context),
@@ -134,6 +161,7 @@ export class LocalHcpRuntime {
       purpose_id: binding.purpose_id,
       result: 'released',
     });
+    this.#persistState();
   }
 
   revokeGrant(grantId, reason = 'user_withdrew_permission') {
@@ -161,6 +189,8 @@ export class LocalHcpRuntime {
         binding.revoked_at = new Date().toISOString();
       }
     }
+
+    this.#persistState();
   }
 
   listAuditEvents(filter = {}) {
@@ -215,13 +245,20 @@ export class LocalHcpRuntime {
       throw new HcpRuntimeError(400, 'invalid_request', 'requested_duration_seconds must be a positive number.');
     }
 
+    const normalizedDurationSeconds = Math.ceil(requested_duration_seconds);
+    const sessionOnly = this.#getConstraintValue(constraints, 'session_only');
+    if (sessionOnly === true && session_id === undefined) {
+      throw new HcpRuntimeError(400, 'invalid_request', 'session_id is required when session_only is true.');
+    }
+
     return {
       requester_id,
       purpose,
       capabilities,
       constraints,
       session_id,
-      requested_duration_seconds: Math.floor(requested_duration_seconds),
+      requested_duration_seconds: normalizedDurationSeconds,
+      effective_duration_seconds: this.#resolveEffectiveDurationSeconds(normalizedDurationSeconds, constraints),
     };
   }
 
@@ -280,15 +317,22 @@ export class LocalHcpRuntime {
       }
     }
 
-    const normalizedRequestedContext = Array.isArray(requestedContext) ? requestedContext : [];
-    if (normalizedRequestedContext.length > 0) {
-      signals.requested_context = normalizedRequestedContext;
+    const resolvedRequestedContext = this.#resolveRequestedContextHints(
+      requestedContext,
+      grant.approved_capabilities,
+    );
+    if (resolvedRequestedContext.length > 0) {
+      signals.requested_context = resolvedRequestedContext;
     }
 
     if (Object.keys(signals).length > 0) {
       content.signals = signals;
     }
 
+    const usageConstraints = this.#createUsageConstraints(grant.constraints, binding.session_id);
+    if (Object.keys(usageConstraints).length > 0) {
+      content.usage_constraints = usageConstraints;
+    }
 
     const context_view = {
       id: binding.context_view_id,
@@ -306,6 +350,30 @@ export class LocalHcpRuntime {
     };
 
     return context_view;
+  }
+
+  #resolveRequestedContextHints(requestedContext, approvedCapabilities) {
+    const normalizedRequestedContext = this.#normalizeRequestedContextHints(requestedContext);
+    if (normalizedRequestedContext.length === 0) {
+      return [];
+    }
+
+    const approvedCapabilitySet = new Set(approvedCapabilities);
+    return normalizedRequestedContext.filter((hint) => {
+      const capabilityId = REQUESTED_CONTEXT_HINT_CAPABILITY_MAP.get(hint);
+      return capabilityId !== undefined && approvedCapabilitySet.has(capabilityId);
+    });
+  }
+
+  #normalizeRequestedContextHints(requestedContext) {
+    if (!Array.isArray(requestedContext)) {
+      return [];
+    }
+
+    return requestedContext
+      .filter((entry) => typeof entry === 'string')
+      .map((entry) => entry.trim())
+      .filter((entry, index, collection) => entry.length > 0 && collection.indexOf(entry) === index);
   }
 
   #emitAuditEvent(type, partial) {
@@ -327,29 +395,91 @@ export class LocalHcpRuntime {
     return event;
   }
 
-  #assertGrantUsable(grant, requesterId) {
+  #assertGrantUsable(grant, requesterId, sessionId, metadata) {
     this.#refreshGrantState(grant);
 
     if (grant.requester_id !== requesterId) {
+      this.#emitPolicyViolation(grant, requesterId, 'requester_mismatch', {
+        expected_requester_id: grant.requester_id,
+        attempted_requester_id: requesterId,
+      });
       throw new HcpRuntimeError(403, 'policy_violation', 'The requester does not match the approved grant.');
     }
 
     if (grant.state === 'revoked') {
+      this.#emitAuditEvent('runtime_binding.use_after_revocation', {
+        requester_id: requesterId,
+        grant_id: grant.id,
+        purpose_id: grant.purpose.id,
+        capabilities: grant.approved_capabilities,
+        result: 'denied',
+        details: {
+          session_id: sessionId,
+        },
+      });
       throw new HcpRuntimeError(410, 'grant_revoked', 'The referenced grant has been revoked.');
     }
 
     if (grant.state === 'expired') {
+      this.#emitPolicyViolation(grant, requesterId, 'grant_expired', {
+        session_id: sessionId,
+      });
       throw new HcpRuntimeError(410, 'grant_expired', 'The referenced grant has expired.');
     }
 
     if (grant.state !== 'active') {
+      this.#emitPolicyViolation(grant, requesterId, 'grant_not_active', {
+        state: grant.state,
+        session_id: sessionId,
+      });
       throw new HcpRuntimeError(403, 'policy_violation', 'The referenced grant is not active.');
+    }
+
+    if (grant.session_id && grant.session_id !== sessionId) {
+      this.#emitPolicyViolation(grant, requesterId, 'session_mismatch', {
+        approved_session_id: grant.session_id,
+        attempted_session_id: sessionId,
+      });
+      throw new HcpRuntimeError(403, 'policy_violation', 'The binding session does not match the approved grant.');
+    }
+
+    if (this.#getConstraintValue(grant.constraints, 'storage_allowed') === false && metadata.storage_intent === true) {
+      this.#emitPolicyViolation(grant, requesterId, 'storage_disallowed', {
+        session_id: sessionId,
+      });
+      throw new HcpRuntimeError(403, 'policy_violation', 'The approved grant does not allow storage of the context view.');
+    }
+
+    if (
+      this.#getConstraintValue(grant.constraints, 'forwarding_allowed') === false &&
+      metadata.forwarding_intent === true
+    ) {
+      this.#emitPolicyViolation(grant, requesterId, 'forwarding_disallowed', {
+        session_id: sessionId,
+      });
+      throw new HcpRuntimeError(403, 'policy_violation', 'The approved grant does not allow forwarding the context view.');
     }
   }
 
   #refreshGrantState(grant) {
+    let changed = false;
+
     if (grant.state === 'active' && new Date(grant.expires_at).getTime() <= Date.now()) {
       grant.state = 'expired';
+      changed = true;
+    }
+
+    if (grant.state === 'expired') {
+      for (const binding of this.bindings.values()) {
+        if (binding.grant_id === grant.id && binding.state === 'active') {
+          binding.state = 'expired';
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      this.#persistState();
     }
   }
 
@@ -382,6 +512,8 @@ export class LocalHcpRuntime {
       throw new HcpRuntimeError(400, 'invalid_request', 'constraints must be an array when provided.');
     }
 
+    const seenTypes = new Set();
+
     return value.map((constraint) => {
       const normalized = this.#requireObject(constraint, 'Constraint entries must be objects.');
       const type = this.#requireNonEmptyString(normalized.type, 'constraints.type', 'constraint_not_enforceable');
@@ -389,12 +521,39 @@ export class LocalHcpRuntime {
         throw new HcpRuntimeError(400, 'constraint_not_enforceable', `Unsupported constraint type: ${type}.`);
       }
 
+      if (seenTypes.has(type)) {
+        throw new HcpRuntimeError(400, 'invalid_request', `Duplicate constraint type: ${type}.`);
+      }
+
+      seenTypes.add(type);
+
       return {
         type,
-        value: normalized.value,
+        value: this.#normalizeConstraintValue(type, normalized.value),
         description: typeof normalized.description === 'string' ? normalized.description : undefined,
       };
     });
+  }
+
+  #normalizeConstraintValue(type, value) {
+    switch (type) {
+      case 'storage_allowed':
+      case 'forwarding_allowed':
+      case 'session_only':
+        if (typeof value !== 'boolean') {
+          throw new HcpRuntimeError(400, 'invalid_request', `${type} must be a boolean.`);
+        }
+
+        return value;
+      case 'max_duration_seconds':
+        if (!Number.isFinite(value) || value <= 0) {
+          throw new HcpRuntimeError(400, 'invalid_request', 'max_duration_seconds must be a positive number.');
+        }
+
+        return Math.ceil(value);
+      default:
+        return value;
+    }
   }
 
   #requireObject(value, message, code = 'invalid_request') {
@@ -415,6 +574,117 @@ export class LocalHcpRuntime {
 
   #createId(prefix) {
     return `${prefix}_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
+  }
+
+  #resolveEffectiveDurationSeconds(requestedDurationSeconds, constraints) {
+    const maxDurationSeconds = this.#getConstraintValue(constraints, 'max_duration_seconds');
+    if (typeof maxDurationSeconds !== 'number') {
+      return requestedDurationSeconds;
+    }
+
+    return Math.min(requestedDurationSeconds, maxDurationSeconds);
+  }
+
+  #getConstraintValue(constraints, type) {
+    return constraints.find((constraint) => constraint.type === type)?.value;
+  }
+
+  #createUsageConstraints(constraints, sessionId) {
+    const usageConstraints = {};
+    const storageAllowed = this.#getConstraintValue(constraints, 'storage_allowed');
+    const forwardingAllowed = this.#getConstraintValue(constraints, 'forwarding_allowed');
+    const sessionOnly = this.#getConstraintValue(constraints, 'session_only');
+    const maxDurationSeconds = this.#getConstraintValue(constraints, 'max_duration_seconds');
+
+    if (typeof storageAllowed === 'boolean') {
+      usageConstraints.storage_allowed = storageAllowed;
+    }
+
+    if (typeof forwardingAllowed === 'boolean') {
+      usageConstraints.forwarding_allowed = forwardingAllowed;
+    }
+
+    if (sessionOnly === true) {
+      usageConstraints.session_only = true;
+      usageConstraints.session_id = sessionId;
+    }
+
+    if (typeof maxDurationSeconds === 'number') {
+      usageConstraints.max_duration_seconds = maxDurationSeconds;
+    }
+
+    return usageConstraints;
+  }
+
+  #emitPolicyViolation(grant, requesterId, result, details = {}) {
+    this.#emitAuditEvent('policy.violation_detected', {
+      requester_id: requesterId,
+      grant_id: grant?.id,
+      purpose_id: grant?.purpose?.id,
+      capabilities: grant?.approved_capabilities,
+      result,
+      details,
+    });
+  }
+
+  #loadState() {
+    if (!this.stateFilePath) {
+      return;
+    }
+
+    try {
+      const raw = readFileSync(this.stateFilePath, 'utf8');
+      if (raw.trim().length === 0) {
+        return;
+      }
+
+      const persisted = JSON.parse(raw);
+      if (persisted && typeof persisted === 'object') {
+        this.subjectId = typeof persisted.subject_id === 'string' ? persisted.subject_id : this.subjectId;
+        this.grants = new Map(this.#restoreEntries(persisted.grants));
+        this.bindings = new Map(this.#restoreEntries(persisted.bindings));
+        this.auditEvents = Array.isArray(persisted.audit_events) ? persisted.audit_events : [];
+      }
+    } catch (error) {
+      if (error && typeof error === 'object' && error.code === 'ENOENT') {
+        return;
+      }
+
+      throw new Error(`Failed to load persisted runtime state from ${this.stateFilePath}: ${error.message}`);
+    }
+  }
+
+  #persistState() {
+    if (!this.stateFilePath) {
+      return;
+    }
+
+    mkdirSync(dirname(this.stateFilePath), { recursive: true });
+    writeFileSync(
+      this.stateFilePath,
+      JSON.stringify(
+        {
+          version: PERSISTED_STATE_VERSION,
+          subject_id: this.subjectId,
+          grants: [...this.grants.values()],
+          bindings: [...this.bindings.values()],
+          audit_events: this.auditEvents,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+  }
+
+  #restoreEntries(value) {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value
+      .filter((entry) => entry && typeof entry === 'object' && typeof entry.id === 'string')
+      .map((entry) => [entry.id, entry]);
   }
 }
 

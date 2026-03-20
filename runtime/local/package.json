@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Local-first reference runtime for Human Context Protocol.",
   "scripts": {
-    "start": "node src/server.mjs"
+    "start": "node src/server.mjs",
+    "test": "node test/runtime.test.mjs"
   }
 }
